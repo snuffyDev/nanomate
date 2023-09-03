@@ -1,5 +1,5 @@
-import { timeline } from "./lib/core/timeline";
-import { KeyframeWithTransform } from "./lib/core/types";
+import { timeline } from "./browser-test/src/lib/core/timeline";
+import { KeyframeWithTransform } from "./browser-test/src/lib/core/types";
 import "./style.css";
 import {
 	easeOut,
@@ -9,7 +9,7 @@ import {
 	quartInOut,
 	circIn,
 	circOut,
-} from "./lib/core/easing";
+} from "./browser-test/src/lib/core/easing";
 
 const setupPathDemo = (
 	root: HTMLElement | SVGElement,

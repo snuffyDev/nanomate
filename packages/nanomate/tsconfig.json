@@ -1,0 +1,11 @@
+{
+	"compilerOptions": {
+		"noEmitOnError": false,
+		"lib": ["es2015", "dom", "ESNext"],
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleResolution": "node",
+		"baseUrl": ".",
+		"noEmitHelpers": true
+	}
+}

@@ -1,24 +1,27 @@
 {
-  "name": "nanosync",
+  "name": "nanomate",
   "version": "1.0.0",
-  "description": "",
+  "description": ":zap: A tiny, fast, and modern web animation library.",
   "main": "./src/index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "require": "./dist/index.js",
-      "import": "./dist/index.mjs"
-    },
-    "./package.json": "./package.json"
-  },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "nanomate",
+    "animation",
+    "core",
+    "web animation",
+    "animation library",
+    "waapi",
+    "web animation api",
+    "motionpath",
+    "motion path",
+    "animate"
+  ],
+  "author": "snuffyDev <snuffyDev@hotmail.com>",
   "license": "ISC",
   "devDependencies": {
-    "nanobundle": "^1.5.0",
+    "nanobundle": "^1.6.0",
     "typescript": "^4.9.5"
   },
   "dependencies": {
