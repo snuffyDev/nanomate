@@ -1,5 +1,5 @@
-import { timeline } from "../../packages/nanomate/src/core/timeline";
-import { KeyframeWithTransform } from "../../packages/nanomate/src/core/types";
+import { timeline } from "../../packages/core/src/core/timeline";
+import { KeyframeWithTransform } from "../../packages/core/src/core/types";
 import "./style.css";
 import {
 	easeOut,
@@ -7,7 +7,7 @@ import {
 	quadIn,
 	quadOut,
 	quartInOut,
-} from "../../packages/nanomate/src/core/easing";
+} from "../../packages/core/src/core/easing";
 import { Timeline } from "./lib/core/timeline";
 
 let tl: Timeline[] = [];
