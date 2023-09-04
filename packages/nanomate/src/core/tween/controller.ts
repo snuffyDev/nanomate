@@ -2,6 +2,11 @@ export const createPlaybackController = (animation: Animation) => {
 	return {
 		play: () => {
 			animation.play();
+			return new Promise<Animation>((resolve) => {
+				animation.finished.then(resolve).catch(() => {
+					animation.commitStyles();
+				});
+			});
 		},
 		pause: () => {
 			animation.pause();

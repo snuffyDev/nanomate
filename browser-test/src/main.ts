@@ -1,5 +1,5 @@
-import { timeline } from "./lib/core/timeline";
-import { KeyframeWithTransform } from "./lib/core/types";
+import { timeline } from "../../packages/nanomate/src/core/timeline";
+import { KeyframeWithTransform } from "../../packages/nanomate/src/core/types";
 import "./style.css";
 import {
 	easeOut,
@@ -7,10 +7,10 @@ import {
 	quadIn,
 	quadOut,
 	quartInOut,
-	circIn,
-	circOut,
-} from "./lib/core/easing";
+} from "../../packages/nanomate/src/core/easing";
+import { Timeline } from "./lib/core/timeline";
 
+let tl: Timeline[] = [];
 const setupPathDemo = (
 	root: HTMLElement | SVGElement,
 	target: HTMLElement,
@@ -141,53 +141,53 @@ const setupPathDemo = (
 	// tween.start();
 	// const tween = timeline({ defaults: options, paused: true });
 
-	let tl = undefined;
 	const initTimeline = () => {
 		const opts = {
 			...options,
 		};
 		console.log(root);
-		tl = timeline({ defaults: opts, repeat: 3, paused: true });
-		tl.to(
-			element,
-			[
-				// Square
-				{ borderRadius: "0%", scale: 1, clipPath: "none" },
-				// Star
+		const _tl = timeline({ defaults: opts, repeat: 3, paused: true });
+		_tl
+			.to(
+				element,
+				[
+					// Square
+					{ borderRadius: "0%", scale: 1, clipPath: "none" },
+					// Star
+					{
+						borderRadius: "0%",
+						scale: 0.2,
+						clipPath:
+							"polygon(50% 0%, 61.8% 38.2%, 100% 35.4%, 69.1% 57.3%, 82.6% 91.6%, 50% 73.8%, 17.4% 91.6%, 30.9% 57.3%, 0% 35.4%, 38.2% 38.2%)",
+					},
+					{
+						borderRadius: "50%",
+						backgroundColor: "white",
+						scale: 1,
+						clipPath: "initial",
+					}, // Circle
+					{ borderRadius: "25%", scale: 2, clipPath: "initial" }, // Rounded Square
+					{ borderRadius: "50%", scale: 0.5, clipPath: "initial" }, // Circle
+					// Triangle
+					{
+						borderRadius: "0%",
+						scale: 0.5,
+						backgroundColor: "green",
+						clipPath: "polygon(50% 0%, 100% 100%, 0% 100%)",
+					},
+				],
 				{
-					borderRadius: "0%",
-					scale: 0.2,
-					clipPath:
-						"polygon(50% 0%, 61.8% 38.2%, 100% 35.4%, 69.1% 57.3%, 82.6% 91.6%, 50% 73.8%, 17.4% 91.6%, 30.9% 57.3%, 0% 35.4%, 38.2% 38.2%)",
+					duration: 6200,
+					direction: "normal",
+					fill: "none",
+					composite: "replace",
+					easing: isFirst ? "ease-in-out" : cubicIn,
+					iterations: 3,
+					anchor: [0, 0],
+					rotate: true,
+					path: root.querySelector<SVGPathElement>("#infinity")!,
 				},
-				{
-					borderRadius: "50%",
-					backgroundColor: "white",
-					scale: 1,
-					clipPath: "initial",
-				}, // Circle
-				{ borderRadius: "25%", scale: 2, clipPath: "initial" }, // Rounded Square
-				{ borderRadius: "50%", scale: 0.5, clipPath: "initial" }, // Circle
-				// Triangle
-				{
-					borderRadius: "0%",
-					scale: 0.5,
-					backgroundColor: "green",
-					clipPath: "polygon(50% 0%, 100% 100%, 0% 100%)",
-				},
-			],
-			{
-				duration: 6200,
-				direction: "normal",
-				fill: "none",
-				composite: "replace",
-				easing: isFirst ? "ease-in-out" : cubicIn,
-				iterations: 3,
-				anchor: [0, 0],
-				rotate: true,
-				path: root.querySelector<SVGPathElement>("#infinity")!,
-			},
-		)
+			)
 			.to(
 				element,
 				[
@@ -350,11 +350,22 @@ const setupPathDemo = (
 					fill: "backwards",
 				},
 			);
-		return tl;
+		return _tl;
 	};
 
-	tl = initTimeline();
-	tl.play();
+	const _tl = initTimeline();
+	tl.push(_tl);
+	let state = "play";
+	const playPause = document.querySelector<HTMLButtonElement>("#playPause");
+
+	playPause.onclick = () => {
+		if (state === "play") state = "pause";
+		else state = "play";
+		tl.forEach((tl) => {
+			tl[state]?.();
+		});
+	};
+	_tl.play();
 	// svgPath?.animate([{}])
 	// tween
 	// 	.to(element, keyframes3, {

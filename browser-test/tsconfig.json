@@ -1,5 +1,5 @@
 {
-	"references": [{ "path": "../packages/nanomate" }],
+	"references": [{ "path": "../packages/nanomate/tsconfig.json" }],
 	"compilerOptions": {
 		"target": "ESNext",
 		"composite": true,
@@ -20,6 +20,5 @@
 			"@": ["../packages/nanomate/src/"],
 			"@/*": ["../packages/nanomate/src/*"]
 		}
-	},
-	"include": ["src"]
+	}
 }

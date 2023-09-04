@@ -89,7 +89,7 @@ class Timeline {
 				this.currentTween = tween;
 				finishedPromise = tween.finished();
 				tween.play();
-				finishedPromise.catch((e) => {
+				await finishedPromise.catch((e) => {
 					console.error(`Failed to play tween: ${e}`);
 				});
 				tween.cancel();

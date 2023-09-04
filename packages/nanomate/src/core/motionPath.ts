@@ -385,7 +385,6 @@ function interpolateKeyframes({
 			offset: Math.min(Math.max(offset, 0), 1),
 		} as KeyframeWithTransform;
 	});
-
 	return keyframes;
 
 	function setMultiNumValues(

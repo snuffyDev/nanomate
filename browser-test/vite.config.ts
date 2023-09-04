@@ -22,6 +22,11 @@ export default defineConfig({
 		minifyIdentifiers: true,
 		minifySyntax: true,
 		treeShaking: true,
-		drop: ["console", "debugger"],
+	},
+	server: {
+		fs: { allow: ["../packages/nanomate", "./"] },
+		watch: {
+			usePolling: true,
+		},
 	},
 });
