@@ -179,66 +179,6 @@ export class MotionPath {
 	}
 }
 
-const numberRegex = /[-+]?\d*\.?\d+/g;
-
-function interpolateNumbersInString(
-	str: string,
-	easing: EasingFunction,
-	offset: number,
-): string {
-	return str.replace(numberRegex, (match) => {
-		const oldValue = Math.fround(parseFloat(match));
-		const newValue = easing(oldValue);
-		return `${easing(oldValue + offset * (newValue - oldValue))}`;
-	});
-}
-
-const parseNumber = (str: string) => {
-	let val: number = parseFloat(str);
-	if (isNaN(val)) {
-		val = parseInt(str);
-	}
-
-	return val;
-};
-
-const hasNumberValues = (value: unknown): value is number => {
-	if (
-		(typeof value === "string" && parseNumber(value)) ||
-		typeof value === "number"
-	) {
-		return !isNaN(parseNumber(value.toString()));
-	}
-	return false;
-};
-
-function interpolateMultiNumericalProperty(
-	fromValue: string,
-	toValue: string,
-	easing: EasingFunction,
-	progress: number,
-): string {
-	const from = interpolateNumbersInString(fromValue, easing, progress);
-	const to = interpolateNumbersInString(toValue, easing, progress);
-
-	return from.replace(numberRegex, (match, offset, string) => {
-		let fromVal = parseNumber(match);
-		let toVal = parseNumber(to.slice(offset));
-
-		if (isNaN(toVal)) toVal = fromVal;
-
-		return `${easing(fromVal + progress * (toVal - fromVal ?? progress))}`;
-	});
-}
-
-function hasMultiNumericalValues(value: any): boolean {
-	if (typeof value === "string") {
-		const numericalValues = value.match(/[-\d.]+/g);
-		return !!numericalValues && numericalValues.length >= 2;
-	}
-	return false;
-}
-
 function interpolateKeyframes({
 	boundingClient,
 	frames,
@@ -284,27 +224,25 @@ function interpolateKeyframes({
 		return acc;
 	});
 
-	const fullFrameKeys = keysWithType(
-		fullFrame as KeyframeWithTransform & { scale?: number },
-	);
-
 	const keyframes: KeyframeWithTransform[] = Array(pathPoints.length);
 
 	const frameTracker = new Set<number>();
 
 	for (let i = 0; i < pathPoints.length; i++) {
 		const progress = i * step;
+
 		let frameIndex = Math.floor(easing(progress * totalFrames));
+
+		// Handle the last frame separately
 		if (i === pathPoints.length - 1) {
 			frameIndex = totalFrames - 1;
 		}
+
 		const frame = frames[frameIndex];
 		const nextFrame = frames[frameIndex + 1] ?? frames[frameIndex - 1];
 		const prevfullFrame = keyframes[i - 1] || fullFrame;
 
 		frameTracker.add(frameIndex);
-
-		// Handle the last frame separately
 
 		const keyframe: KeyframeWithTransform = {};
 
@@ -377,9 +315,6 @@ function interpolateKeyframes({
 						nextKeyframeIndex++;
 					}
 				}
-				// if (typeof keyframe[key] === "undefined") {
-				// 	keyframe[key] = prevfullFrame[key] as never;
-				// }
 			}
 		}
 
@@ -414,14 +349,6 @@ function interpolateKeyframes({
 		keyframes[i] = keyframe;
 	}
 
-	// if (frameTracker.size < totalFrames) {
-	// 	for (let i = 0; i < totalFrames; i++) {
-	// 		if (!frameTracker.has(i)) {
-	// 			keyframes[i] = frames[i];
-	// 		}
-	// 	}
-	// }
-
 	return keyframes;
 
 	function setMultiNumValues(
@@ -439,4 +366,64 @@ function interpolateKeyframes({
 			offset,
 		) as never;
 	}
+}
+
+const numberRegex = /[-+]?\d*\.?\d+/g;
+
+function interpolateNumbersInString(
+	str: string,
+	easing: EasingFunction,
+	offset: number,
+): string {
+	return str.replace(numberRegex, (match) => {
+		const oldValue = Math.fround(parseFloat(match));
+		const newValue = easing(oldValue);
+		return `${easing(oldValue + offset * (newValue - oldValue))}`;
+	});
+}
+
+function parseNumber(str: string) {
+	let val: number = parseFloat(str);
+	if (isNaN(val)) {
+		val = parseInt(str);
+	}
+
+	return val;
+}
+
+function hasNumberValues(value: unknown): value is number {
+	if (
+		(typeof value === "string" && parseNumber(value)) ||
+		typeof value === "number"
+	) {
+		return !isNaN(parseNumber(value.toString()));
+	}
+	return false;
+}
+
+function interpolateMultiNumericalProperty(
+	fromValue: string,
+	toValue: string,
+	easing: EasingFunction,
+	progress: number,
+): string {
+	const from = interpolateNumbersInString(fromValue, easing, progress);
+	const to = interpolateNumbersInString(toValue, easing, progress);
+
+	return from.replace(numberRegex, (match, offset, string) => {
+		let fromVal = parseNumber(match);
+		let toVal = parseNumber(to.slice(offset));
+
+		if (isNaN(toVal)) toVal = fromVal;
+
+		return `${easing(fromVal + progress * (toVal - fromVal ?? progress))}`;
+	});
+}
+
+function hasMultiNumericalValues(value: any): boolean {
+	if (typeof value === "string") {
+		const numericalValues = value.match(/[-\d.]+/g);
+		return !!numericalValues && numericalValues.length >= 2;
+	}
+	return false;
 }
