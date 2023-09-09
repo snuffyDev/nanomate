@@ -1,7 +1,11 @@
 import { MotionPathOptions } from "./motionPath";
 import { tween, TweenOptions } from "./tween";
-import { KeyframeWithTransform } from "./types";
+import {
+	ArrayBasedKeyframeWithTransform,
+	KeyframeWithTransform,
+} from "./types";
 import { is } from "./utils/is";
+import { normalizeKeyframes } from "./utils/keyframes";
 export interface TimelineOptions {
 	defaults?: TweenOptions & {
 		motionPath?: { path: MotionPathOptions };
@@ -123,17 +127,28 @@ class Timeline {
 
 	to(
 		target: HTMLElement,
+		keyframes: ArrayBasedKeyframeWithTransform,
+		options: TweenOptions,
+	): Timeline;
+	to(
+		target: HTMLElement,
 		keyframes: KeyframeWithTransform[],
 		options: TweenOptions,
-	) {
-		const { defaults } = this.defaultOptions;
-		const { motionPath, ...rest } = defaults;
+	): Timeline;
+	to(target: HTMLElement, keyframes: any, options: TweenOptions): Timeline {
+		const { defaults = {} as NonNullable<TimelineOptions["defaults"]> } =
+			this.defaultOptions;
+		const { motionPath = null, ...rest } = defaults;
 
-		const _tween = tween(target, keyframes, {
-			...rest,
-			...((!!motionPath || "path" in options) && { ...motionPath }),
-			...options,
-		});
+		const _tween = tween(
+			target,
+			normalizeKeyframes(keyframes as KeyframeWithTransform[]),
+			{
+				...rest,
+				...((!!motionPath || "path" in options) && { ...motionPath }),
+				...options,
+			},
+		);
 
 		this.tweens.push(_tween);
 

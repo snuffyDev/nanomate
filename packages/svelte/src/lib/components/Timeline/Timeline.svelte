@@ -1,11 +1,17 @@
 <script context="module" lang="ts">
 	import { makeContext } from '$lib/utils/context.js';
+	export type LocalTimelineContext = {
+		timeline: Timeline;
+		paths: Writable<HTMLElement>;
+		target: Writable<HTMLElement>;
+	};
 	// global timeline context key string
 	export const kGlobalContext = '@@global-timeline-context';
 	// global timeline context key string
-	export const GLOBAL_TIMELINE_CONTEXT = makeContext<{ target: Writable<HTMLElement> }>(
-		Symbol.for('@@global-timeline-context')
-	);
+	export const GLOBAL_TIMELINE_CONTEXT = makeContext<{
+		target: Writable<HTMLElement>;
+		paths: Writable<HTMLElement>;
+	}>(Symbol.for('@@global-timeline-context'));
 
 	// const TimelineManager = (()=>{
 	//     const WM = new WeakMap<Timeline, ()
@@ -30,30 +36,36 @@
 		type KeyframeWithTransform,
 		type Timeline,
 		type TimelineOptions,
-		type TweenOptions
+		type TweenOptions,
+		type ArrayBasedKeyframeWithTransform
 	} from '@nanomate/core';
 	import { writable, type Writable } from 'svelte/store';
 
-	export let options: TimelineOptions = { defaults: {} };
-
+	export let options: TimelineOptions = {};
 	export let context: string | object | symbol = GLOBAL_TIMELINE_CONTEXT.key;
 
 	export function test(args: any) {
 		console.log(args);
 	}
-	export function to(keyframes: KeyframeWithTransform[], options?: TweenOptions) {
+
+	export function to(
+		keyframes: KeyframeWithTransform[] | ArrayBasedKeyframeWithTransform,
+		options: TweenOptions
+	) {
 		if (!$target) return console.warn('No target element provided');
-		tl.to($target, keyframes, options ?? { duration: 0 });
+		tl.to($target, keyframes as never, options ?? { duration: 0 });
 	}
 
 	let target: Writable<HTMLElement> = writable();
+	let paths: Writable<HTMLElement> = writable();
 	let tl: Timeline = timeline(options);
 
-	const localContext = makeContext<{ target: Writable<HTMLElement> }>(
+	const localContext = makeContext<LocalTimelineContext>(
 		typeof context === 'string' ? Symbol.for(context) : context
 	);
-	localContext.set({ target });
-	GLOBAL_TIMELINE_CONTEXT.set({ target });
+
+	localContext.set({ timeline: tl, target, paths });
+	GLOBAL_TIMELINE_CONTEXT.set({ target, paths });
 </script>
 
 <slot name="path" />

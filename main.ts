@@ -122,7 +122,7 @@ const setupPathDemo = (
 		{ outline: "10px dashed limegreen" },
 		{
 			opacity: 0.7,
-			scale: 0.1,
+			scale: 2.1,
 			borderRadius: ".25rem",
 			backgroundColor: "cyan",
 			outline: "5px solid red",

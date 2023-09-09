@@ -25,12 +25,6 @@ importers:
         specifier: ^7.2.0
         version: 7.2.0(typescript@4.9.5)
 
-  packages/nanomate:
-    devDependencies:
-      tsup:
-        specifier: ^7.2.0
-        version: 7.2.0(typescript@4.9.5)
-
   packages/svelte:
     dependencies:
       '@nanomate/core':

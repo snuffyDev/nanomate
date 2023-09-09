@@ -24,5 +24,7 @@ export const createPlaybackController = (animation: Animation) => {
 				animation.commitStyles();
 			}
 		},
-	};
+	} as const;
 };
+
+export type PlaybackController = ReturnType<typeof createPlaybackController>;

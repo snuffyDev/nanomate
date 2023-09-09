@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import { GLOBAL_TIMELINE_CONTEXT } from './Timeline.svelte';
+	import { GLOBAL_TIMELINE_CONTEXT } from '../Timeline/Timeline.svelte';
 
+	/** The HTML tagname for the root target element */
 	export let as: keyof HTMLElementTagNameMap = 'div';
 
+	/** The context key associated with the parent Timeline */
 	let _for: symbol | object | string = GLOBAL_TIMELINE_CONTEXT.key;
 	export { _for as for };
 
@@ -14,7 +16,6 @@
 	const { target } = context;
 </script>
 
-<svelte:element this={as} bind:this={$target} {...$$restProps} />
-
-<style>
-</style>
+<svelte:element this={as} bind:this={$target} {...$$restProps}>
+	<slot />
+</svelte:element>

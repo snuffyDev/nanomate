@@ -1,8 +1,15 @@
-import { EasingFactory, EasingFunction, linear } from "./easing";
+import { type EasingFactory, type EasingFunction, linear } from "./easing";
 import { MotionPath, MotionPathOptions } from "./motionPath";
-import { createPlaybackController } from "./tween/controller";
-import type { KeyframeWithTransform } from "./types";
+import {
+	PlaybackController,
+	createPlaybackController,
+} from "./tween/controller";
+import type {
+	ArrayBasedKeyframeWithTransform,
+	KeyframeWithTransform,
+} from "./types";
 import { is } from "./utils/is";
+import { normalizeKeyframes } from "./utils/keyframes";
 import { debounce } from "./utils/throttle";
 
 // @ts-expect-error idk what broke but smth did
@@ -25,6 +32,11 @@ export type CompositeOperation =
 	| "accumulate"
 	| "auto"
 	| "none";
+
+export type Tween = PlaybackController & {
+	onResize: () => void;
+	get config(): TweenOptions;
+};
 
 /**
  * Helper function for getting the CSS easing function from an easing factory or from a string
@@ -63,21 +75,29 @@ const getPathElementFromOptions = (
 	) {
 		return options.path as SVGPathElement;
 	}
+	try {
+		const path = document.querySelector<SVGPathElement>(options.path as string);
+		if (!path) throw Error("No path found");
 
-	const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-	path.setAttribute("d", options.path as string);
-	return path;
+		return path;
+	} catch {
+		const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+		path.setAttribute("d", options.path as string);
+		return path;
+	}
 };
 
 const pathTween = (
 	element: Element,
 	keyframes: KeyframeWithTransform[],
 	options: MotionPathOptions & BaseTweenOptions,
-) => {
+): Tween => {
 	// TODO: use this somehow
 	let easing: EasingFunction | EasingFactory =
 		typeof options.easing === "object" ? options.easing : linear;
 	let invalidated = false;
+
+	console.log(keyframes);
 
 	if (options.easing) {
 		const easingFactory = options.easing;
@@ -95,10 +115,16 @@ const pathTween = (
 		motionPath.anchor = options.anchor ? options.anchor : "auto";
 		motionPath.path = getPathElementFromOptions(options);
 
-		return motionPath.build(keyframes, easing as never);
+		return motionPath.build(
+			typeof options.easing === "object"
+				? options.easing.frames(keyframes)
+				: keyframes,
+			easing as never,
+		);
 	};
-
-	const effect = createKeyframeEffect(element, buildKeyframes(), {
+	const kf = buildKeyframes();
+	console.log(kf);
+	const effect = createKeyframeEffect(element, kf, {
 		...options,
 		easing: options.easing ? getEasingFunctionName(options.easing) : "linear",
 	});
@@ -122,10 +148,15 @@ const pathTween = (
 			playbackController.play();
 
 			if (invalidated) {
-				onResize().finally(() => {
-					invalidated = false;
-				});
+				return onResize()
+					.then(() => {
+						return animation;
+					})
+					.finally(() => {
+						invalidated = false;
+					});
 			}
+			return Promise.resolve<Animation>(animation);
 		},
 		onResize,
 		get config() {
@@ -134,16 +165,30 @@ const pathTween = (
 	};
 };
 
-export const tween = (
+export function tween(
 	element: Element,
 	keyframes: KeyframeWithTransform[],
 	options: TweenOptions,
-) => {
+): Tween;
+export function tween(
+	element: Element,
+	keyframes: ArrayBasedKeyframeWithTransform,
+	options: TweenOptions,
+): Tween;
+export function tween(
+	element: Element,
+	keyframes: KeyframeWithTransform[] | ArrayBasedKeyframeWithTransform,
+	options: TweenOptions,
+): Tween {
+	const normalizedKeyframes = normalizeKeyframes(
+		keyframes,
+		typeof options.easing === "object" ? options.easing.calc : undefined,
+	);
 	if ("path" in options) {
-		return pathTween(element, keyframes, options);
+		return pathTween(element, normalizedKeyframes, options);
 	}
 
-	const effect = createKeyframeEffect(element, keyframes, options);
+	const effect = createKeyframeEffect(element, normalizedKeyframes, options);
 	const animation = new Animation(effect, document.timeline);
 
 	const playbackController = createPlaybackController(animation);
@@ -157,4 +202,4 @@ export const tween = (
 			return options;
 		},
 	};
-};
+}

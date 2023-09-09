@@ -46,7 +46,7 @@ const incrementalId = (() => {
 })();
 
 export class MotionPath {
-	private _anchor: Exclude<Anchor, string> = [0.5, 0.5];
+	private _anchor: Exclude<Anchor, string> = [0, 0];
 	private _duration = 0;
 	private _id = incrementalId();
 	private _length: number;
@@ -58,7 +58,7 @@ export class MotionPath {
 		path: SVGPathElement | string,
 		private options: Omit<MotionPathOptions, "path"> & MotionPathOptions,
 	) {
-		const { anchor = [0.5, 0.5], rotate = false } = this.options;
+		const { anchor = [0, 0], rotate = false } = this.options;
 
 		if (typeof path === "string") {
 			this._path = pathStringToSVGPath(path);
@@ -72,7 +72,7 @@ export class MotionPath {
 
 	public set anchor(newAnchor: Anchor | "auto") {
 		if (newAnchor === "auto") {
-			newAnchor = [0.5, 0.5];
+			newAnchor = [0, 0];
 		}
 
 		const [anchorX, anchorY] = newAnchor;
@@ -184,29 +184,51 @@ const numberRegex = /[-+]?\d*\.?\d+/g;
 function interpolateNumbersInString(
 	str: string,
 	easing: EasingFunction,
+	offset: number,
 ): string {
 	return str.replace(numberRegex, (match) => {
-		const oldValue = parseFloat(match);
+		const oldValue = Math.fround(parseFloat(match));
 		const newValue = easing(oldValue);
-		return `${newValue}`;
+		return `${easing(oldValue + offset * (newValue - oldValue))}`;
 	});
 }
+
+const parseNumber = (str: string) => {
+	let val: number = parseFloat(str);
+	if (isNaN(val)) {
+		val = parseInt(str);
+	}
+
+	return val;
+};
+
+const hasNumberValues = (value: unknown): value is number => {
+	if (
+		(typeof value === "string" && parseNumber(value)) ||
+		typeof value === "number"
+	) {
+		return !isNaN(parseNumber(value.toString()));
+	}
+	return false;
+};
 
 function interpolateMultiNumericalProperty(
 	fromValue: string,
 	toValue: string,
+	easing: EasingFunction,
 	progress: number,
 ): string {
-	const fromValues = fromValue.split(/\s*,\s*|\s+/).map(parseFloat);
-	const toValues = toValue.split(/\s*,\s*|\s+/).map(parseFloat);
+	const from = interpolateNumbersInString(fromValue, easing, progress);
+	const to = interpolateNumbersInString(toValue, easing, progress);
 
-	const interpolatedValues = fromValues.map((fromVal, index) => {
-		const toVal = toValues[index] || fromVal;
-		return fromVal + (toVal - fromVal) * progress;
+	return from.replace(numberRegex, (match, offset, string) => {
+		let fromVal = parseNumber(match);
+		let toVal = parseNumber(to.slice(offset));
+
+		if (isNaN(toVal)) toVal = fromVal;
+
+		return `${easing(fromVal + progress * (toVal - fromVal ?? progress))}`;
 	});
-
-	// Combine the interpolated values back into a string
-	return interpolatedValues.join(fromValue.includes(",") ? ", " : " ");
 }
 
 function hasMultiNumericalValues(value: any): boolean {
@@ -252,113 +274,121 @@ function interpolateKeyframes({
 			: easingGenerator;
 
 	const totalFrames = frames.length;
-	const step = 1 / (pathPoints.length - 1);
+	const step = 1 / pathPoints.length;
 
-	const keyframes = Array.from(pathPoints, function (point, index) {
-		const t = index * step;
+	const fullFrame = frames.reduceRight((acc, curr) => {
+		for (const key in curr) {
+			if (key === "scale") continue;
+			if (!acc[key]) acc[key] = curr[key];
+		}
+		return acc;
+	});
 
-		let keyframeIndex = Math.floor(easing(t) * (totalFrames - 1));
-		const nextKeyframeIndex = Math.floor(easing(index * step) * totalFrames);
+	const fullFrameKeys = keysWithType(
+		fullFrame as KeyframeWithTransform & { scale?: number },
+	);
+
+	const keyframes: KeyframeWithTransform[] = Array(pathPoints.length);
+
+	const frameTracker = new Set<number>();
+
+	for (let i = 0; i < pathPoints.length; i++) {
+		const progress = i * step;
+		let frameIndex = Math.floor(easing(progress * totalFrames));
+		if (i === pathPoints.length - 1) {
+			frameIndex = totalFrames - 1;
+		}
+		const frame = frames[frameIndex];
+		const nextFrame = frames[frameIndex + 1] ?? frames[frameIndex - 1];
+		const prevfullFrame = keyframes[i - 1] || fullFrame;
+
+		frameTracker.add(frameIndex);
 
 		// Handle the last frame separately
-		if (index === pathPoints.length - 1) {
-			keyframeIndex = 0;
-		}
-		const frame = frames[keyframeIndex];
-		const nextFrame = frames[nextKeyframeIndex];
 
-		let { scale = 1 } = frame;
+		const keyframe: KeyframeWithTransform = {};
 
-		const offset = index === pathPoints.length - 1 ? 1 : easing(t);
-
-		const temp = {} as NonNullable<typeof frame>;
-		let transform = ` `;
-
-		const keys = keysWithType(
-			frame as KeyframeWithTransform & { scale?: number },
-		);
-
-		for (const key of keys) {
+		for (const key of keysWithType(fullFrame)) {
 			if (key === "easing" || key === "scale") continue;
-			if (isTransform(key) || key.includes("scale")) {
-				transform += interpolateNumbersInString(
-					buildTransform(key as CSSTransform, frame[key] as string) + " ",
-					easing,
-				);
-			}
-
-			if (!(key in frame) && key in nextFrame) {
-				const prevValue = frame[key];
-				const nextValue = nextFrame[key as keyof typeof frame];
-
-				if (hasMultiNumericalValues(frame[key])) {
-					temp[key] = interpolateMultiNumericalProperty(
-						prevValue as never,
-						nextValue as never,
-						offset,
-					) as never;
+			if (key in frame) {
+				const prevValue = prevfullFrame[key]!;
+				const currentValue = frame[key]!;
+				if (isTransform(key) || key.includes("scale")) {
+					if (!keyframe.transform) keyframe.transform = "";
+					keyframe.transform += `${interpolateNumbersInString(
+						buildTransform(key as CSSTransform, frame[key] as string) + " ",
+						easing,
+						progress,
+					)} `;
 				} else if (
-					typeof prevValue === "number" &&
-					typeof nextValue === "number"
+					hasMultiNumericalValues(nextFrame[key]) &&
+					hasMultiNumericalValues(currentValue)
 				) {
-					// Interpokeyframeslate numeric values
-					temp[key] = (prevValue + offset * (nextValue - prevValue)) as never;
-				} else if (
-					typeof prevValue === "string" &&
-					typeof nextValue === "string"
-				) {
-					if (hasMultiNumericalValues(frame[key])) {
-						setMultiNumValues(temp, key, prevValue, nextValue, offset);
-					} else {
-						if (hasMultiNumericalValues(frame[key])) {
-							setMultiNumValues(temp, key, prevValue, nextValue, offset);
-						}
-						// Interpolate numbers in strings
-						else
-							temp[key as keyof typeof frame] = interpolateNumbersInString(
-								prevValue,
-								easing,
-							) as never;
-					}
+					setMultiNumValues(
+						keyframe,
+						key,
+						prevValue as string,
+						currentValue as string,
+						easing,
+						progress,
+					);
 				} else {
-					if (hasMultiNumericalValues(frame[key])) {
-						setMultiNumValues(
-							temp,
-							key,
-							prevValue as never,
-							nextValue as never,
-							offset,
-						);
+					if (hasNumberValues(prevValue) && hasNumberValues(currentValue)) {
+						if (
+							hasMultiNumericalValues(currentValue) &&
+							hasMultiNumericalValues(prevValue)
+						) {
+							setMultiNumValues(
+								keyframe,
+								key,
+								prevValue as never,
+								currentValue as never,
+								easing,
+								progress,
+							);
+						} else {
+							keyframe[key] = interpolateNumbersInString(
+								currentValue.toString(),
+								easing,
+								progress,
+							) as never;
+						}
 					} else {
-						// Use the next value
-						temp[key as keyof typeof frame] = nextValue as never;
+						if (typeof currentValue === "string")
+							keyframe[key] = currentValue as never;
 					}
 				}
-			}
 
-			// Look ahead to the next keyframe that contains the property
-			let nextKeyframeIndex = index + 1;
-			while (nextKeyframeIndex < pathPoints.length) {
-				const nextKeyframe =
-					frames[Math.floor(easing(nextKeyframeIndex * step) * totalFrames)];
-				if (nextKeyframe && key in nextKeyframe) {
-					const nextValue = nextKeyframe[key as keyof typeof nextKeyframe];
-					if (typeof temp[key as keyof typeof temp] === "undefined") {
-						temp[key as keyof typeof temp] = nextValue as never;
+				if (key in frame && !(key in nextFrame)) {
+					// Look ahead to the next keyframe that contains the property
+					let nextKeyframeIndex = i + 1;
+					while (nextKeyframeIndex < pathPoints.length) {
+						const nextKeyframe =
+							frames[
+								Math.floor(easing(nextKeyframeIndex * step) * totalFrames)
+							];
+						if (nextKeyframe && key in nextKeyframe) {
+							const nextValue = nextKeyframe[key as keyof typeof nextKeyframe];
+							if (typeof keyframe[key] === "undefined") {
+								keyframe[key as keyof typeof keyframe] = nextValue as never;
+							}
+							break;
+						}
+						nextKeyframeIndex++;
 					}
-					break;
 				}
-				nextKeyframeIndex++;
+				// if (typeof keyframe[key] === "undefined") {
+				// 	keyframe[key] = prevfullFrame[key] as never;
+				// }
 			}
 		}
 
-		scale =
-			scale < 1 || (scale > -1 && scale < 1) ? 1 + Math.abs(scale) : scale;
-
+		const point = pathPoints[i];
+		const t = i === pathPoints.length - 1 ? 1 : progress;
+		const scale = frame.scale ? easing(1 - t) + frame.scale : 1;
 		const [anchorX, anchorY] = anchor;
-
-		const p0 = pathPoints.at(index >= 1 ? index - 1 : 0);
-		const p1 = pathPoints.at(index + 1) ?? point;
+		const p0 = pathPoints.at(i >= 1 ? i - 1 : 0);
+		const p1 = pathPoints.at(i + 1) ?? point;
 
 		const translateX =
 			boundingClient.left - anchorX + (point.x - p.x) * (+scaleX || 1);
@@ -368,22 +398,30 @@ function interpolateKeyframes({
 		const autoRotate = rotate
 			? (Math.atan2(p1.y - p0!.y, p1.x - p0!.x) * 180) / Math.PI
 			: 0;
+		let transform = `${keyframe.transform ?? " "}`;
+		keyframe.transform =
+			`translateX(${translateX}px) translateY(${translateY}px) scale(${Math.fround(
+				scale * easing(1 - t) + scale,
+			)}) ${rotate ? `rotate(${easing(1 - t) * autoRotate}deg)` : ""} ${
+				keyframe.transform ?? ""
+			} `.trim();
 
-		transform = `${
-			frame.transform ?? ""
-		}translateX(${translateX}px) translateY(${translateY}px) scale(${
-			scale * easing(1 - t) + scale
-		}) ${
-			rotate ? `rotate(${easing(1 - t) * autoRotate}deg)` : ""
-		}   ${transform}`;
+		keyframe["offset"] =
+			i === pathPoints.length - 1
+				? 1
+				: Math.min(1, Math.max(0, easing(progress)));
 
-		return {
-			...temp,
-			...(scale && {}),
-			transform,
-			offset: Math.min(Math.max(offset, 0), 1),
-		} as KeyframeWithTransform;
-	});
+		keyframes[i] = keyframe;
+	}
+
+	// if (frameTracker.size < totalFrames) {
+	// 	for (let i = 0; i < totalFrames; i++) {
+	// 		if (!frameTracker.has(i)) {
+	// 			keyframes[i] = frames[i];
+	// 		}
+	// 	}
+	// }
+
 	return keyframes;
 
 	function setMultiNumValues(
@@ -391,11 +429,13 @@ function interpolateKeyframes({
 		key: string,
 		prevValue: string,
 		nextValue: string,
+		easing: EasingFunction,
 		offset: number,
 	) {
 		temp[key as keyof typeof temp] = interpolateMultiNumericalProperty(
 			prevValue,
 			nextValue,
+			easing,
 			offset,
 		) as never;
 	}
